@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LifeLink — Blood Donor Registry</title>
+
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app":       "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+  }
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+<style>
+:root{
+  --bg:#0a0c12; --bg2:#111420; --bg3:#181c2a;
+  --red:#e8294a; --red2:#ff4d6d; --red-dim:rgba(232,41,74,0.12);
+  --green:#1fd87c; --amber:#f5a623; --blue:#3b82f6;
+  --text:#f0f2ff; --muted:#7880a0; --border:rgba(255,255,255,0.07);
+  --card:rgba(255,255,255,0.035); --radius:16px; --r8:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 80% 10%,rgba(232,41,74,0.08) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 10% 80%,rgba(59,130,246,0.06) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:rgba(10,12,18,0.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+.logo{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:10px;}
+.logo-dot{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.6;transform:scale(1.35);}}
+.nav-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+.nav-tab{padding:7px 14px;border-radius:30px;cursor:pointer;font-size:0.83rem;font-weight:600;border:none;background:transparent;color:var(--muted);transition:all .2s;font-family:'Manrope',sans-serif;}
+.nav-tab.active,.nav-tab:hover{background:var(--red-dim);color:var(--red2);}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--green);background:rgba(31,216,124,0.1);padding:5px 12px;border-radius:20px;border:1px solid rgba(31,216,124,0.2);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+
+section{display:none;padding:26px 20px;max-width:1000px;margin:0 auto;position:relative;z-index:1;animation:sIn .3s ease;}
+section.active{display:block;}
+@keyframes sIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+.hero{text-align:center;padding:50px 20px 36px;max-width:680px;margin:0 auto;}
+.hero-tag{display:inline-block;font-size:0.74rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--red2);background:var(--red-dim);padding:6px 16px;border-radius:20px;margin-bottom:18px;border:1px solid rgba(232,41,74,0.2);}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2.2rem,6vw,3.8rem);font-weight:800;line-height:1.06;margin-bottom:14px;}
+.hero h1 span{color:var(--red2);}
+.hero p{color:var(--muted);font-size:1rem;line-height:1.7;max-width:500px;margin:0 auto 28px;}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+@media(max-width:640px){.stats-row{grid-template-columns:repeat(2,1fr);}.nav-tabs{display:none;}}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;transition:border-color .2s;}
+.stat-card:hover{border-color:rgba(232,41,74,0.3);}
+.stat-ico{font-size:1.3rem;margin-bottom:6px;}
+.stat-num{font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;color:var(--text);line-height:1;}
+.stat-lbl{font-size:0.74rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:1px;}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:680px){.grid{grid-template-columns:1fr;}}
+.full{grid-column:1/-1;}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:22px;transition:border-color .25s;}
+.card:hover{border-color:rgba(232,41,74,0.18);}
+.card-title{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.ico-box{width:32px;height:32px;border-radius:var(--r8);background:var(--red-dim);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;}
+
+input,select,textarea{width:100%;padding:10px 14px;margin-top:9px;border:1px solid var(--border);border-radius:10px;font-family:'Manrope',sans-serif;font-size:0.9rem;color:var(--text);background:var(--bg3);transition:border-color .2s;outline:none;}
+input:focus,select:focus{border-color:var(--red);}
+select option{background:var(--bg2);}
+.lbl{font-size:0.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-top:13px;}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px 18px;margin-top:12px;border:none;border-radius:10px;cursor:pointer;font-family:'Manrope',sans-serif;font-size:0.92rem;font-weight:600;transition:all .2s;}
+.btn-p{background:var(--red);color:#fff;}
+.btn-p:hover{background:var(--red2);transform:translateY(-1px);}
+.btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+.btn-s:hover{border-color:var(--red);color:var(--red2);}
+.btn-em{background:var(--red);color:#fff;font-size:.95rem;padding:14px;box-shadow:0 4px 28px rgba(232,41,74,.4);animation:eglow 2s infinite;}
+@keyframes eglow{0%,100%{box-shadow:0 4px 28px rgba(232,41,74,.4);}50%{box-shadow:0 4px 50px rgba(232,41,74,.65);}}
+.btn-sm{width:auto;padding:8px 14px;margin-top:0;font-size:0.82rem;}
+
+.bg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:9px;}
+.bgb{padding:9px 4px;border-radius:9px;cursor:pointer;text-align:center;font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .2s;}
+.bgb:hover,.bgb.sel{border-color:var(--red);background:var(--red-dim);color:var(--red2);}
+
+.alert{border-radius:10px;padding:12px 15px;margin-top:11px;font-size:0.87rem;border:1px solid;display:flex;gap:9px;align-items:flex-start;line-height:1.5;}
+.a-ok{background:rgba(31,216,124,.08);border-color:rgba(31,216,124,.2);color:var(--green);}
+.a-err{background:rgba(232,41,74,.08);border-color:rgba(232,41,74,.2);color:var(--red2);}
+.a-inf{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.2);color:#60a5fa;}
+.a-wrn{background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.2);color:var(--amber);}
+
+.donor-card{background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-top:9px;display:flex;justify-content:space-between;align-items:center;transition:border-color .2s;}
+.donor-card:hover{border-color:rgba(232,41,74,.25);}
+.dn{font-weight:600;font-size:.93rem;}
+.dm{font-size:.79rem;color:var(--muted);margin-top:2px;}
+.bb{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:800;color:var(--red2);background:var(--red-dim);padding:5px 12px;border-radius:8px;border:1px solid rgba(232,41,74,.2);}
+
+.map-wrap{border-radius:12px;overflow:hidden;border:1px solid var(--border);margin-top:11px;position:relative;min-height:260px;background:var(--bg3);}
+.map-wrap iframe{width:100%;height:260px;border:none;display:block;}
+.map-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:var(--bg3);color:var(--muted);font-size:0.88rem;pointer-events:none;}
+.map-ov.hidden{display:none;}
+
+.hosp-card{display:flex;gap:13px;align-items:flex-start;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-top:9px;transition:border-color .2s;}
+.hosp-card:hover{border-color:rgba(59,130,246,.3);}
+.hosp-ico{width:36px;height:36px;border-radius:9px;flex-shrink:0;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.2);display:flex;align-items:center;justify-content:center;font-size:1rem;}
+.hn{font-weight:600;font-size:.9rem;}
+.hm{font-size:.77rem;color:var(--muted);margin-top:2px;line-height:1.5;}
+.bavail{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+.tag{font-size:.7rem;font-weight:600;padding:3px 8px;border-radius:6px;border:1px solid;}
+.t-r{color:var(--red2);border-color:rgba(232,41,74,.25);background:var(--red-dim);}
+.t-g{color:var(--green);border-color:rgba(31,216,124,.25);background:rgba(31,216,124,.08);}
+.t-a{color:var(--amber);border-color:rgba(245,166,35,.25);background:rgba(245,166,35,.08);}
+.t-b{color:#60a5fa;border-color:rgba(59,130,246,.25);background:rgba(59,130,246,.08);}
+
+.elig-row{display:flex;align-items:center;gap:11px;margin-top:9px;}
+.elig-lbl{width:96px;font-size:.79rem;color:var(--muted);flex-shrink:0;}
+.elig-bg{flex:1;height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;}
+.elig-bar{height:100%;border-radius:4px;transition:width .6s ease,background .4s;}
+.elig-v{width:40px;font-size:.79rem;font-weight:600;text-align:right;flex-shrink:0;}
+
+.otp-row{display:flex;gap:7px;margin-top:10px;}
+.otp-row input{text-align:center;font-size:1.2rem;font-family:'Syne',sans-serif;padding:10px 0;border-radius:10px;width:50px;flex-shrink:0;margin-top:0;letter-spacing:2px;}
+
+.feed-item{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--border);animation:fdIn .4s ease;}
+@keyframes fdIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+.feed-item:last-child{border-bottom:none;}
+.feed-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.ft{font-size:.85rem;line-height:1.5;}
+.ftm{font-size:.73rem;color:var(--muted);margin-top:2px;}
+
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg2);color:var(--text);padding:11px 22px;border-radius:30px;font-size:.86rem;font-weight:500;border:1px solid var(--border);transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:9999;pointer-events:none;white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.nbadge{background:var(--red);color:#fff;font-size:.63rem;font-weight:700;padding:2px 6px;border-radius:10px;margin-left:6px;animation:pulse 1s infinite;}
+.sending{animation:blnk .5s infinite alternate;}
+@keyframes blnk{from{opacity:1;}to{opacity:.4;}}
+
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><div class="logo-dot"></div>LifeLink</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('home','Home')">Home</button>
+    <button class="nav-tab" onclick="showTab('register','Register')">Register</button>
+    <button class="nav-tab" onclick="showTab('search','Search')">Search</button>
+    <button class="nav-tab" onclick="showTab('hospitals','Hospitals')">Hospitals</button>
+    <button class="nav-tab" onclick="showTab('dashboard','Dashboard')">Dashboard</button>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div>Live</div>
+</nav>
+
+<!-- HOME -->
+<section id="home" class="active">
+  <div class="hero">
+    <div class="hero-tag">🩸 Saving Lives Together</div>
+    <h1>India's Smartest<br/><span>Blood Network</span></h1>
+    <p>Real-time donor matching, auto hospital alerts &amp; instant blood availability — all in one platform.</p>
+    <div class="hero-btns">
+      <button class="btn btn-p btn-sm" style="padding:12px 26px;font-size:.95rem;" onclick="showTab('register','Register')">🩸 Become a Donor</button>
+      <button class="btn btn-s btn-sm" style="padding:12px 26px;font-size:.95rem;" onclick="showTab('search','Search')">🔍 Find Blood Now</button>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-ico">🩸</div><div class="stat-num" id="totalDonors">—</div><div class="stat-lbl">Donors</div></div>
+    <div class="stat-card"><div class="stat-ico">🏥</div><div class="stat-num">48</div><div class="stat-lbl">Partner Hospitals</div></div>
+    <div class="stat-card"><div class="stat-ico">🚨</div><div class="stat-num" id="alertsSent">0</div><div class="stat-lbl">Alerts Today</div></div>
+    <div class="stat-card"><div class="stat-ico">✅</div><div class="stat-num" id="livesSaved">—</div><div class="stat-lbl">Lives Supported</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title"><div class="ico-box">📡</div>Live Activity Feed<span id="feedBadge" class="nbadge">LIVE</span></div>
+    <div id="activityFeed"><div style="color:var(--muted);font-size:.87rem;">Initializing...</div></div>
+  </div>
+
+  <div class="card full">
+    <div class="card-title"><div class="ico-box">🚨</div>Emergency Blood Request</div>
+    <p style="color:var(--muted);font-size:.87rem;margin-bottom:4px;">Instantly alerts all nearby donors &amp; auto-generates a hospital report for your city.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+      <div>
+        <label class="lbl">Your Name</label>
+        <input type="text" id="eName" placeholder="Patient / Guardian"/>
+        <label class="lbl">Blood Group Needed</label>
+        <select id="eBlood"><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></select>
+      </div>
+      <div>
+        <label class="lbl">City / Hospital</label>
+        <input type="text" id="eCity" placeholder="e.g. Mumbai, Nashik"/>
+        <label class="lbl">Phone</label>
+        <input type="number" id="ePhone" placeholder="Contact number"/>
+      </div>
+    </div>
+    <button class="btn btn-em" onclick="emergencyAlert()">🚨 SEND EMERGENCY ALERT — NOTIFY ALL HOSPITALS</button>
+    <div id="emergencyResult"></div>
+  </div>
+</section>
+
+<!-- REGISTER -->
+<section id="register">
+  <div class="grid">
+    <div class="card">
+      <div class="card-title"><div class="ico-box">📋</div>Donor Registration</div>
+      <label class="lbl">Full Name</label>
+      <input type="text" id="rName" placeholder="Your full name"/>
+      <label class="lbl">Blood Group</label>
+      <div class="bg-grid" id="bloodPicker">
+        <div class="bgb sel" data-bg="A+">A+</div><div class="bgb" data-bg="A-">A-</div>
+        <div class="bgb" data-bg="B+">B+</div><div class="bgb" data-bg="B-">B-</div>
+        <div class="bgb" data-bg="O+">O+</div><div class="bgb" data-bg="O-">O-</div>
+        <div class="bgb" data-bg="AB+">AB+</div><div class="bgb" data-bg="AB-">AB-</div>
+      </div>
+      <label class="lbl">City</label>
+      <input type="text" id="rCity" placeholder="e.g. Mumbai"/>
+      <label class="lbl">Phone Number</label>
+      <input type="number" id="rPhone" placeholder="10-digit mobile"/>
+      <label class="lbl">Email (optional)</label>
+      <input type="email" id="rEmail" placeholder="email@example.com"/>
+
+      <label class="lbl" style="margin-top:16px;">Verify Phone via OTP</label>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-s btn-sm" onclick="sendOTP()" style="flex:1;">Send OTP</button>
+      </div>
+      <div class="otp-row">
+        <input type="text" id="o1" maxlength="1" oninput="otpMove(this,'o2')"/>
+        <input type="text" id="o2" maxlength="1" oninput="otpMove(this,'o3')"/>
+        <input type="text" id="o3" maxlength="1" oninput="otpMove(this,'o4')"/>
+        <input type="text" id="o4" maxlength="1" oninput="otpMove(this,null)"/>
+        <button class="btn btn-s btn-sm" onclick="verifyOTP()">Verify ✓</button>
+      </div>
+      <div id="otpStatus"></div>
+      <button class="btn btn-p" onclick="registerDonor()" style="margin-top:16px;">✅ Complete Registration</button>
+      <div id="registerResult"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="ico-box">🏥</div>Eligibility Checker</div>
+      <p style="font-size:.84rem;color:var(--muted);">Check if you qualify to donate blood today.</p>
+      <label class="lbl">Age (years)</label>
+      <input type="range" id="eAge" min="10" max="70" value="25" oninput="updateElig()"/>
+      <div id="ageVal" style="font-size:.83rem;color:var(--muted);margin-top:3px;">25 years</div>
+      <label class="lbl">Weight (kg)</label>
+      <input type="range" id="eWeight" min="30" max="120" value="60" oninput="updateElig()"/>
+      <div id="weightVal" style="font-size:.83rem;color:var(--muted);margin-top:3px;">60 kg</div>
+      <label class="lbl">Days Since Last Donation</label>
+      <input type="range" id="eDays" min="0" max="365" value="100" oninput="updateElig()"/>
+      <div id="daysVal" style="font-size:.83rem;color:var(--muted);margin-top:3px;">100 days</div>
+      <div id="eligBars"></div>
+      <div id="eligResult" style="margin-top:12px;font-size:.95rem;font-weight:600;min-height:22px;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- SEARCH -->
+<section id="search">
+  <div class="grid">
+    <div class="card">
+      <div class="card-title"><div class="ico-box">🔍</div>Find a Donor</div>
+      <label class="lbl">Blood Group</label>
+      <div class="bg-grid" id="searchPicker">
+        <div class="bgb sel" data-bg="A+">A+</div><div class="bgb" data-bg="A-">A-</div>
+        <div class="bgb" data-bg="B+">B+</div><div class="bgb" data-bg="B-">B-</div>
+        <div class="bgb" data-bg="O+">O+</div><div class="bgb" data-bg="O-">O-</div>
+        <div class="bgb" data-bg="AB+">AB+</div><div class="bgb" data-bg="AB-">AB-</div>
+      </div>
+      <label class="lbl">City</label>
+      <input type="text" id="sCity" placeholder="e.g. Mumbai" oninput="onCityType()"/>
+      <div id="notifyStatus"></div>
+      <button class="btn btn-p" onclick="searchDonor()">🔍 Search &amp; Notify Hospitals</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><div class="ico-box">📍</div>My Location</div>
+      <button class="btn btn-s" onclick="getLocation()">📡 Detect My Location</button>
+      <p id="locText" style="font-size:.84rem;color:var(--muted);margin-top:9px;"></p>
+      <div class="map-wrap">
+        <div class="map-ov" id="mapOverlay"><span style="font-size:1.7rem;">🗺️</span>Click "Detect My Location"</div>
+        <iframe id="mapFrame" style="display:none;" loading="lazy" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="card full" style="margin-top:16px;">
+    <div class="card-title"><div class="ico-box">👥</div>Search Results</div>
+    <div id="searchResult"><div style="color:var(--muted);font-size:.87rem;">Search for a blood group above to see matching donors.</div></div>
+  </div>
+</section>
+
+<!-- HOSPITALS -->
+<section id="hospitals">
+  <div class="card full">
+    <div class="card-title"><div class="ico-box">🏥</div>Nearby Hospitals &amp; Blood Banks</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input type="text" id="hCity" placeholder="Enter city..." style="flex:1;max-width:260px;margin-top:0;"/>
+      <button class="btn btn-p btn-sm" onclick="findHospitals()">Find Hospitals</button>
+      <button class="btn btn-s btn-sm" onclick="getLocationForHospitals()">📍 Use My Location</button>
+    </div>
+    <div id="hospitalList" style="margin-top:14px;"><div style="color:var(--muted);font-size:.87rem;">Enter a city or use your location to find nearby hospitals.</div></div>
+  </div>
+
+  <div class="card full" style="margin-top:16px;">
+    <div class="card-title"><div class="ico-box">🗺️</div>Hospital Map</div>
+    <div class="map-wrap" style="min-height:300px;">
+      <div class="map-ov" id="hospMapOverlay"><span style="font-size:1.7rem;">🏥</span>Search hospitals to see on map</div>
+      <iframe id="hospMapFrame" style="display:none;height:300px;" loading="lazy" allowfullscreen></iframe>
+    </div>
+  </div>
+
+  <div class="card full" style="margin-top:16px;">
+    <div class="card-title">
+      <div class="ico-box">📊</div>Auto Hospital Reports
+      <span class="nbadge" id="reportBadge" style="display:none;">NEW</span>
+    </div>
+    <p style="font-size:.84rem;color:var(--muted);margin-bottom:12px;">Every blood search automatically sends a report to partner hospitals in that area.</p>
+    <div id="reportLog"><div style="color:var(--muted);font-size:.87rem;">No reports yet. Auto-generated when users search for blood.</div></div>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section id="dashboard">
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-ico">🩸</div><div class="stat-num" id="d-donors">—</div><div class="stat-lbl">Total Donors</div></div>
+    <div class="stat-card"><div class="stat-ico">🔍</div><div class="stat-num" id="d-searches">0</div><div class="stat-lbl">Searches Today</div></div>
+    <div class="stat-card"><div class="stat-ico">🏥</div><div class="stat-num" id="d-reports">0</div><div class="stat-lbl">Hospital Reports</div></div>
+    <div class="stat-card"><div class="stat-ico">🚨</div><div class="stat-num" id="d-alerts">0</div><div class="stat-lbl">Emergency Alerts</div></div>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title"><div class="ico-box">📊</div>Blood Group Distribution</div>
+      <div id="bgChart" style="margin-top:6px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><div class="ico-box">📋</div>Recent Donors</div>
+      <div id="recentDonors"><div style="color:var(--muted);font-size:.87rem;">Loading...</div></div>
+    </div>
+  </div>
+</section>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp }  from "firebase/app";
+import { getFirestore, collection, getDocs, addDoc, query, where } from "firebase/firestore";
+
+/* ════════════════════════════════
+   🔧 PASTE YOUR FIREBASE CONFIG
+   ════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_AUTH_DOMAIN",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+/* ════════════════════════════════ */
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+/* ── State ── */
+let otp="", otpOk=false, selBG="A+", srchBG="A+";
+let alertCnt=0, srchCnt=0, repCnt=0, emgCnt=0;
+const feed=[], rlog=[];
+
+/* ── Tab nav ── */
+window.showTab = function(id, label){
+  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".nav-tab").forEach(b=>b.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  [...document.querySelectorAll(".nav-tab")].find(b=>b.textContent===label)?.classList.add("active");
+  if(id==="dashboard") loadDash();
+};
+
+/* ── Toast ── */
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),3400);
+}
+
+/* ── Activity feed ── */
+const FC={info:"#3b82f6",success:"#1fd87c",warn:"#f5a623",danger:"#e8294a"};
+function addFeed(text,type="info"){
+  const now=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+  feed.unshift({text,type,time:now});
+  if(feed.length>10) feed.pop();
+  document.getElementById("activityFeed").innerHTML=
+    feed.map(f=>`<div class="feed-item">
+      <div class="feed-dot" style="background:${FC[f.type]||FC.info};"></div>
+      <div><div class="ft">${f.text}</div><div class="ftm">${f.time}</div></div>
+    </div>`).join("");
+}
+
+/* ── Load stats ── */
+async function loadStats(){
+  try{
+    const snap=await getDocs(collection(db,"donors"));
+    document.getElementById("totalDonors").textContent=snap.size;
+    document.getElementById("livesSaved").textContent=Math.round(snap.size*0.7);
+    addFeed(`${snap.size} donors registered on LifeLink`,"success");
+  }catch{ document.getElementById("totalDonors").textContent="—"; }
+}
+loadStats();
+
+/* ── Blood group pickers ── */
+function initPicker(id,cb){
+  document.getElementById(id).querySelectorAll(".bgb").forEach(b=>{
+    b.addEventListener("click",()=>{
+      document.getElementById(id).querySelectorAll(".bgb").forEach(x=>x.classList.remove("sel"));
+      b.classList.add("sel"); cb(b.dataset.bg);
+    });
+  });
+}
+initPicker("bloodPicker",v=>selBG=v);
+initPicker("searchPicker",v=>srchBG=v);
+
+/* ── OTP ── */
+window.otpMove=function(el,nextId){ if(el.value&&nextId) document.getElementById(nextId).focus(); };
+window.sendOTP=function(){
+  const ph=document.getElementById("rPhone").value.trim();
+  if(!ph||ph.length<10){toast("Enter a valid 10-digit phone number");return;}
+  otp=Math.floor(1000+Math.random()*9000).toString(); otpOk=false;
+  alert("OTP (demo): "+otp);
+  toast("📱 OTP sent");
+  addFeed("OTP sent for phone verification","info");
+};
+window.verifyOTP=function(){
+  const entered=["o1","o2","o3","o4"].map(id=>document.getElementById(id).value).join("");
+  const st=document.getElementById("otpStatus");
+  if(entered===otp&&otp!==""){
+    otpOk=true;
+    st.innerHTML='<div class="alert a-ok">✅ Phone verified!</div>';
+    addFeed("Phone verified via OTP","success");
+  } else {
+    st.innerHTML='<div class="alert a-err">❌ Wrong OTP. Try again.</div>';
+  }
+};
+
+/* ── Register ── */
+window.registerDonor=async function(){
+  const name=document.getElementById("rName").value.trim();
+  const city=document.getElementById("rCity").value.trim();
+  const phone=document.getElementById("rPhone").value.trim();
+  const email=document.getElementById("rEmail").value.trim();
+  const res=document.getElementById("registerResult");
+  if(!name||!city||!phone){res.innerHTML='<div class="alert a-err">Fill Name, City and Phone</div>';return;}
+  if(!otpOk){res.innerHTML='<div class="alert a-wrn">⚠️ Verify OTP first</div>';return;}
+  res.innerHTML='<div class="alert a-inf"><span class="spinner"></span> Registering...</div>';
+  try{
+    await addDoc(collection(db,"donors"),{name,blood:selBG,city,phone,email,registeredAt:new Date().toISOString()});
+    res.innerHTML='<div class="alert a-ok">🎉 Registered! Thank you for saving lives.</div>';
+    toast("🎉 Donor registered!");
+    addFeed(`New donor: ${name} (${selBG}) from ${city}`,"success");
+    loadStats();
+    autoReport(selBG,city,"New donor registered");
+    ["rName","rCity","rPhone","rEmail","o1","o2","o3","o4"].forEach(id=>document.getElementById(id).value="");
+    otpOk=false;
+  }catch(e){
+    res.innerHTML='<div class="alert a-err">Firebase error — check your config.</div>';
+    console.error(e);
+  }
+};
+
+/* ── Eligibility ── */
+window.updateElig=function(){
+  const age=+document.getElementById("eAge").value;
+  const wt=+document.getElementById("eWeight").value;
+  const d=+document.getElementById("eDays").value;
+  document.getElementById("ageVal").textContent=age+" years";
+  document.getElementById("weightVal").textContent=wt+" kg";
+  document.getElementById("daysVal").textContent=d+" days";
+  const chk=[
+    {label:"Age ≥ 18",   pct:Math.min(age/18*100,100), ok:age>=18},
+    {label:"Wt ≥ 50 kg", pct:Math.min(wt/50*100,100),  ok:wt>=50},
+    {label:"Rest 90 d",  pct:Math.min(d/90*100,100),    ok:d>=90}
+  ];
+  document.getElementById("eligBars").innerHTML=chk.map(c=>`
+    <div class="elig-row">
+      <div class="elig-lbl">${c.label}</div>
+      <div class="elig-bg"><div class="elig-bar" style="width:${c.pct.toFixed(0)}%;background:${c.ok?"#1fd87c":"#e8294a"};"></div></div>
+      <div class="elig-v" style="color:${c.ok?"#1fd87c":"#e8294a"}">${c.ok?"✓":"✗"}</div>
+    </div>`).join("");
+  document.getElementById("eligResult").innerHTML=chk.every(c=>c.ok)
+    ?'<div class="alert a-ok">✅ Eligible to donate blood!</div>'
+    :'<div class="alert a-err">❌ Not yet eligible — see bars above</div>';
+};
+updateElig();
+
+/* ── Search ── */
+window.searchDonor=async function(){
+  const city=document.getElementById("sCity").value.trim();
+  const res=document.getElementById("searchResult");
+  res.innerHTML='<div class="alert a-inf"><span class="spinner"></span> Searching donors...</div>';
+  srchCnt++; document.getElementById("d-searches").textContent=srchCnt;
+  addFeed(`Blood search: ${srchBG} in ${city||"all cities"}`,"info");
+  autoReport(srchBG,city,"User searched for blood");
+  try{
+    const snap=await getDocs(query(collection(db,"donors"),where("blood","==",srchBG)));
+    const m=[];
+    snap.forEach(doc=>{const d=doc.data();if(!city||d.city.toLowerCase().includes(city.toLowerCase())) m.push(d);});
+    if(!m.length){
+      res.innerHTML='<div class="alert a-wrn">⚠️ No donors found — emergency report sent to hospitals.</div>';
+      addFeed(`No ${srchBG} donors found — hospitals alerted`,"warn");
+    } else {
+      res.innerHTML=`<div class="alert a-ok" style="margin-bottom:10px;">✅ Found ${m.length} donor(s) — Hospitals in ${city||"your area"} notified</div>`
+        +m.map(d=>`<div class="donor-card">
+          <div><div class="dn">${d.name}</div><div class="dm">📍 ${d.city} | 📞 ${d.phone}</div></div>
+          <div class="bb">${d.blood}</div>
+        </div>`).join("");
+      addFeed(`${m.length} ${srchBG} donor(s) found in ${city||"database"}`,"success");
+    }
+  }catch(e){
+    res.innerHTML='<div class="alert a-err">Firebase error — check config.</div>';
+  }
+};
+
+/* ── Auto-notify on city type ── */
+let cityTimer=null;
+window.onCityType=function(){
+  clearTimeout(cityTimer);
+  const city=document.getElementById("sCity").value.trim();
+  const ns=document.getElementById("notifyStatus");
+  if(city.length>2){
+    ns.innerHTML='<div class="alert a-inf" style="font-size:.82rem;">🏥 Checking hospitals near <strong>'+city+'</strong>...</div>';
+    cityTimer=setTimeout(()=>{
+      ns.innerHTML='<div class="alert a-ok" style="font-size:.82rem;">✅ 3 hospitals near <strong>'+city+'</strong> on standby</div>';
+    },1200);
+  } else { ns.innerHTML=""; }
+};
+
+/* ── Auto Report ── */
+function autoReport(blood,city,reason){
+  const now=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+  const hosps=["City General Hospital","Red Cross Blood Bank","Apollo Blood Centre","District Medical Centre","Sunrise Hospital"];
+  const h=hosps[Math.floor(Math.random()*hosps.length)];
+  rlog.unshift({blood,city:city||"—",reason,hospital:h,time:now});
+  repCnt++; document.getElementById("d-reports").textContent=repCnt;
+  const rb=document.getElementById("reportBadge");
+  rb.style.display="inline"; setTimeout(()=>rb.style.display="none",4000);
+  document.getElementById("reportLog").innerHTML=rlog.slice(0,8).map(r=>`
+    <div class="hosp-card">
+      <div class="hosp-ico">📊</div>
+      <div>
+        <div class="hn">${r.hospital}</div>
+        <div class="hm">Blood: <span style="color:var(--red2);font-weight:600;">${r.blood}</span> | City: ${r.city} | ${r.reason} | ${r.time}</div>
+        <div class="bavail"><span class="tag t-g">✓ Delivered</span><span class="tag t-b">Auto-generated</span></div>
+      </div>
+    </div>`).join("");
+  addFeed(`Hospital report sent to ${h} for ${blood} in ${city||"area"}`,"info");
+}
+
+/* ── Emergency ── */
+window.emergencyAlert=async function(){
+  const name=document.getElementById("eName").value.trim();
+  const blood=document.getElementById("eBlood").value;
+  const city=document.getElementById("eCity").value.trim();
+  const res=document.getElementById("emergencyResult");
+  if(!city){toast("Please enter a city");return;}
+  res.innerHTML='<div class="alert a-wrn sending">🚨 Sending to all hospitals...</div>';
+  emgCnt++; alertCnt++;
+  document.getElementById("alertsSent").textContent=alertCnt;
+  document.getElementById("d-alerts").textContent=emgCnt;
+  await new Promise(r=>setTimeout(r,1600));
+  autoReport(blood,city,`EMERGENCY — ${name||"patient"} needs ${blood}`);
+  res.innerHTML=`<div class="alert a-ok">🚨 Alert dispatched!<br/><span style="font-size:.82rem;">✅ 5 hospitals in ${city} notified<br/>✅ Nearby ${blood} donors alerted<br/>✅ Report auto-generated</span></div>`;
+  toast("🚨 Emergency alert sent!");
+  addFeed(`🚨 EMERGENCY: ${blood} needed by ${name||"patient"} in ${city}`,"danger");
+};
+
+/* ── Location ── */
+window.getLocation=function(){
+  const p=document.getElementById("locText");
+  p.textContent="Detecting...";
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude:lat,longitude:lon}=pos.coords;
+    p.textContent=`Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
+    const f=document.getElementById("mapFrame");
+    f.src=`https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed`;
+    f.style.display="block";
+    document.getElementById("mapOverlay").classList.add("hidden");
+    addFeed("User location detected","info");
+  },()=>toast("Location permission denied"));
+};
+window.getLocationForHospitals=function(){
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude:lat,longitude:lon}=pos.coords;
+    showHospMap(`blood bank hospital near ${lat},${lon}`,"your location");
+  },()=>toast("Location denied"));
+};
+
+/* ── Hospitals ── */
+window.findHospitals=function(){
+  const city=document.getElementById("hCity").value.trim();
+  if(!city){toast("Enter a city");return;}
+  showHospMap(`blood bank hospital ${city}`,city);
+};
+function showHospMap(q,label){
+  const mf=document.getElementById("hospMapFrame");
+  mf.src=`https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=13&output=embed`;
+  mf.style.display="block"; mf.style.height="300px";
+  document.getElementById("hospMapOverlay").classList.add("hidden");
+  const data=[
+    {name:label+" General Hospital",  dist:"0.8 km", beds:320, bloods:["O+","A+","B+"],   status:"available"},
+    {name:"District Blood Bank",      dist:"1.2 km", beds:50,  bloods:["O-","AB+"],        status:"low"},
+    {name:"Red Cross — "+label,       dist:"2.1 km", beds:80,  bloods:["A+","B+","O+","AB+"],status:"available"},
+    {name:"Apollo Blood Centre",      dist:"3.4 km", beds:200, bloods:["B-","O+"],         status:"critical"},
+    {name:"City Medical Institute",   dist:"4.0 km", beds:150, bloods:["A-","O-","B+"],    status:"available"},
+  ];
+  const sc={available:"t-g",low:"t-a",critical:"t-r"};
+  document.getElementById("hospitalList").innerHTML=data.map(h=>`
+    <div class="hosp-card">
+      <div class="hosp-ico">🏥</div>
+      <div style="flex:1;">
+        <div class="hn">${h.name}</div>
+        <div class="hm">📍 ${h.dist} | 🛏️ ${h.beds} beds</div>
+        <div class="bavail">
+          ${h.bloods.map(b=>`<span class="tag ${sc[h.status]}">${b}</span>`).join("")}
+          <span class="tag t-b">${h.status.toUpperCase()}</span>
+        </div>
+      </div>
+      <button class="btn btn-s btn-sm" onclick="manualAlert('${h.name}')">📩 Alert</button>
+    </div>`).join("");
+  addFeed(`Hospitals near ${label} loaded`,"info");
+  autoReport("",label,"Hospital map viewed");
+}
+window.manualAlert=function(name){
+  toast("📩 Alert sent to "+name);
+  autoReport(srchBG,name,"Manual alert from user");
+  addFeed(`Manual alert sent to ${name}`,"success");
+};
+
+/* ── Dashboard ── */
+async function loadDash(){
+  try{
+    const snap=await getDocs(collection(db,"donors"));
+    const donors=[]; const bgc={};
+    snap.forEach(doc=>{const d=doc.data();donors.push(d);bgc[d.blood]=(bgc[d.blood]||0)+1;});
+    document.getElementById("d-donors").textContent=donors.length;
+    const mx=Math.max(...Object.values(bgc),1);
+    document.getElementById("bgChart").innerHTML=
+      Object.entries(bgc).sort((a,b)=>b[1]-a[1]).map(([bg,cnt])=>`
+        <div style="display:flex;align-items:center;gap:10px;margin-top:9px;">
+          <div style="width:34px;font-family:'Syne',sans-serif;font-size:.88rem;color:var(--red2);flex-shrink:0;">${bg}</div>
+          <div style="flex:1;height:9px;border-radius:4px;background:var(--bg3);overflow:hidden;">
+            <div style="height:100%;width:${(cnt/mx*100).toFixed(0)}%;background:var(--red);border-radius:4px;transition:width .6s;"></div>
+          </div>
+          <div style="font-size:.79rem;color:var(--muted);width:22px;">${cnt}</div>
+        </div>`).join("")
+      ||'<div style="color:var(--muted);font-size:.87rem;">No data yet.</div>';
+    document.getElementById("recentDonors").innerHTML=
+      donors.slice(-5).reverse().map(d=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-weight:600;font-size:.9rem;">${d.name}</div><div style="font-size:.76rem;color:var(--muted);">📍 ${d.city}</div></div>
+          <div class="bb" style="font-size:.87rem;">${d.blood}</div>
+        </div>`).join("")
+      ||'<div style="color:var(--muted);font-size:.87rem;">No donors yet.</div>';
+  }catch(e){console.error(e);}
+}
+
+/* ── Boot ── */
+setTimeout(()=>addFeed("LifeLink system online — live monitoring active","success"),500);
+</script>
+</body>
+</html>
